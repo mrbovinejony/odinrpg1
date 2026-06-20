@@ -5,6 +5,8 @@ import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:log"
+import "core:encoding/json"
+import "core:os"
 
 Direction :: enum {
 	Up,
@@ -23,58 +25,14 @@ main :: proc(){
 	rl.InitWindow(1000, 1000, "rpg")
 
 	load_textures()
-
-	player := Entity {
-		texture = player_texture,
-		pos = {MAP_WIDTH /2, MAP_WIDTH / 2},
-		speed = 1,
-		entity_type = .Player,
-		entity_state = .Stopped,
-		moves_left = 2,
-		max_moves = 5,
-		health = 5,
-		damage = 3,
-	}
-
-	enemy := Entity {
-		texture = enemy_texture,
-		pos = {5, 5},
-		speed = 1,
-		entity_type = .Enemy,
-		entity_state = .Stopped,
-		moves_left = 1,
-		max_moves = 2,
-		health = 5,
-		damage = 3,
-	}
-
-	hill := Entity{
-		texture = hill_texture,
-		entity_type = .Static,
-		pos = {3,3},
-	}
-
-	hill1 := Entity{
-		texture = hill_texture,
-		entity_type = .Static, 
-		pos = {4, 4},
-	}
+	load_map()
+	load_json_file()
 
 	camera = {
 		zoom = f32(rl.GetScreenHeight()) / 200
 	}
 
-	load_map()
-
-	set_entity_pos(&player, 2, 2)
-	set_entity_pos(&enemy, 5, 5)
-	set_entity_pos(&hill, 3, 3)
-	set_entity_pos(&hill1, 4, 4)
-
-	append(&entities, player)
-	append(&entities, enemy)
-	append(&entities, hill)
-	append(&entities, hill1)
+	reset_entity_array()
 
 	turn = PLAYER_TURN
 
@@ -83,12 +41,11 @@ main :: proc(){
 
 		set_tile_hovered(&map_grid)
 
-		player = entities[0]
-
 		for &entity in entities{
-			entity.current_tile = get_tile_from_array(entity.pos)
 			handle_entity(&entity)
 		}
+
+		player = entities[0]
 		
 		rl.BeginDrawing()
 		rl.BeginMode2D(camera)
@@ -125,42 +82,22 @@ main :: proc(){
 			rl.DrawLineEx(top_left, bottom_left, 1, {255, 255, 150, 100})
 			rl.DrawLineEx(top_right, bottom_right, 1, {0, 0, 50, 100})
 			rl.DrawLineEx(bottom_left, bottom_right, 1, {0, 0, 50, 100})
-
-
-			if tile.occupied{
-				rl.DrawText("true", i32(tile.rect.x), i32(tile.rect.y), 1, rl.BLUE)
-			}
 		}
 
 		for entity in entities{
 			rl.DrawTextureV(entity.texture, entity.pos, {255, 255, 255, 100})
-			health_str := fmt.ctprintf("%v", entity.health)
+			health_str := fmt.ctprintf("%v", entity.id)
+			turns_str := fmt.ctprintf("%v", entity.moves_left)
 			rl.DrawText(health_str, i32(entity.pos.x), i32(entity.pos.y), 2, rl.RED)
+			rl.DrawText(turns_str, i32(entity.pos.x), i32(entity.pos.y + 10), 2, rl.GREEN)
 		}
 
-		pos_str := fmt.ctprintf("pos: %v", player.pos)
-		ct_str := fmt.ctprintf("current tile: %v", player.current_tile.rect)
-				movesleft_str : cstring
-		if turn == PLAYER_TURN{
-			movesleft_str = fmt.ctprintf("moves left: %v", entities[0].moves_left)
-		} else if turn == ENEMY_TURN{
-			movesleft_str = fmt.ctprintf("moves left: %v", entities[1].moves_left)
-		}
 		rl.EndMode2D()
-		rl.DrawText(pos_str, 1, 1, 20, rl.WHITE)
-		rl.DrawText(hoveredstr, 1, 25, 20, rl.WHITE)
-		rl.DrawText(ct_str, 1, 40, 20, rl.WHITE)
-		turn_str := fmt.ctprintf("turn: %v", turn)
-		state_str := fmt.ctprintf("%v", entities[0].entity_state)
-		rl.DrawText(turn_str, 200, 1, 20, rl.WHITE)
-		rl.DrawText(movesleft_str, 400, 1, 20 ,rl.WHITE)
-		rl.DrawText(state_str, 600, 1, 20, rl.WHITE)
-
-
 		rl.EndDrawing()
 	}
 
 	rl.CloseWindow()
+	//save_and_export_json()
 }
 
 handle_player_input :: proc(e: ^Entity){
@@ -206,3 +143,22 @@ load_textures :: proc(){
 	tile_texture= rl.LoadTexture("tile.png")
 	tile_hovered_texture = rl.LoadTexture("tile_hovered.png")
 }
+
+load_json_file :: proc(){
+	if level_data, ok := os.read_entire_file("level.json", context.temp_allocator); ok == nil{
+		if json.unmarshal(level_data, &entities) != nil {
+			//if unmarshal fails
+		}
+	}
+}
+
+save_and_export_json :: proc(){
+	options := json.Marshal_Options{
+		pretty = true
+	}
+
+	if level_data, err := json.marshal(entities,options, allocator = context.temp_allocator); err == nil{
+		_ = os.write_entire_file("level.json", level_data)
+	}
+}
+
