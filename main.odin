@@ -19,6 +19,11 @@ Direction :: enum {
 	DownRight,
 }
 
+//debug stuff
+editing_mode: bool
+show_path: bool
+wait_for_spacebar: bool
+
 main :: proc(){
 	context.logger = log.create_console_logger()
 
@@ -38,6 +43,9 @@ main :: proc(){
 
 	for !rl.WindowShouldClose(){
 		dt = rl.GetFrameTime()
+		if rl.IsKeyPressed(.SPACE){
+			wait_for_spacebar = false
+		}
 
 		set_tile_hovered(&map_grid)
 
@@ -87,11 +95,15 @@ main :: proc(){
 		for entity in entities{
 			rl.DrawTextureV(entity.texture, entity.pos, {255, 255, 255, 100})
 			health_str := fmt.ctprintf("%v", entity.id)
-			turns_str := fmt.ctprintf("%v", entity.moves_left)
+			moves_left_str := fmt.ctprintf("%v", entity.moves_left)
 			rl.DrawText(health_str, i32(entity.pos.x), i32(entity.pos.y), 2, rl.RED)
-			rl.DrawText(turns_str, i32(entity.pos.x), i32(entity.pos.y + 10), 2, rl.GREEN)
+			rl.DrawText(moves_left_str, i32(entity.pos.x), i32(entity.pos.y + 10), 2, rl.GREEN)
 		}
 
+		turn_str := fmt.ctprintf("%v", turn)
+		spbar_str := fmt.ctprintf("%v", wait_for_spacebar)
+		rl.DrawText(turn_str, 20, 20, 2, rl.WHITE)
+		rl.DrawText(spbar_str, 20, 40, 2, rl.WHITE)
 		rl.EndMode2D()
 		rl.EndDrawing()
 	}
@@ -101,37 +113,31 @@ main :: proc(){
 }
 
 handle_player_input :: proc(e: ^Entity){
+	wait_for_spacebar = false
+	
 	if rl.IsKeyPressed(.LEFT) || rl.IsKeyPressed(.KP_4){
 		move_entity_to_tile(e, .Left,  e.speed)
-		e.moves_left -= 1
 	}
 	if rl.IsKeyPressed(.RIGHT)|| rl.IsKeyPressed(.KP_6){
 		move_entity_to_tile(e, .Right, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.UP)|| rl.IsKeyPressed(.KP_8){
 		move_entity_to_tile(e, .Up, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.DOWN)|| rl.IsKeyPressed(.KP_2){
 		move_entity_to_tile(e, .Down, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.KP_7){
 		move_entity_to_tile(e, .UpLeft, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.KP_9){
 		move_entity_to_tile(e, .UpRight, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.KP_1){
 		move_entity_to_tile(e, .DownLeft, e.speed)
-		e.moves_left -= e.speed
 	}
 	if rl.IsKeyPressed(.KP_3){
 		move_entity_to_tile(e, .DownRight, e.speed)
-		e.moves_left -= e.speed
 	}
 }
 

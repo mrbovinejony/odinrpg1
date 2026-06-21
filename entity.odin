@@ -45,19 +45,20 @@ check_entity_in_direction :: proc(next_pos: rl.Vector2, e: ^Entity) -> (bool, ^E
 
 do_damage :: proc(attacking_e, damaged_e: ^Entity){
 	if damaged_e.entity_type != .Static{
-	switch attacking_e.entity_type{
-		case .Player:
-				damaged_e.health -= attacking_e.damage
-		case .Enemy:
-				damaged_e.health -= attacking_e.damage
-		case .Static:
+		switch attacking_e.entity_type{
+			case .Player:
+					damaged_e.health -= attacking_e.damage
+			case .Enemy:
+					damaged_e.health -= attacking_e.damage
+			case .Static:
+		}
 	}
-}
 }
 
 handle_entity :: proc(e: ^Entity){
-
+	if wait_for_spacebar == false{
 	#partial switch e.entity_type{
+
 		case .Player: 			
 			if turn == PLAYER_TURN{	
 				handle_player_input(e)
@@ -77,13 +78,13 @@ handle_entity :: proc(e: ^Entity){
 					e.moves_left = e.max_moves
 				}
 			}
+		}
 	}
 
 	if e.health <= 0{
 		unordered_remove(&entities, e.id)
 		reset_entity_array()
 	}
-
 }
 
 move_to_entity_target :: proc(e, target_e: ^Entity){
@@ -111,7 +112,6 @@ move_to_entity_target :: proc(e, target_e: ^Entity){
 	}
 
 	move_entity_to_tile(e, dir, e.speed)
-	e.moves_left -= e.speed
 }
 
 move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
@@ -246,6 +246,11 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 				e.pos = prev_pos
 			}
 		}
+
+		if e.entity_type == .Enemy{
+			wait_for_spacebar = true
+		}
+		e.moves_left -= 1
 }
 
 reset_entity_array :: proc(){
