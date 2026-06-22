@@ -6,6 +6,7 @@ import "core:math"
 import "core:math/linalg"
 
 map_grid: [MAP_WIDTH * MAP_HEIGHT]Tile
+hovered_tile: Tile
 
 Tile :: struct {
 	rect: rl.Rectangle,
@@ -71,9 +72,11 @@ set_tile_hovered :: proc(m: ^[MAP_WIDTH * MAP_HEIGHT]Tile){
 
 	for &tile in m{
 		if rl.CheckCollisionPointRec(mp, tile.rect){
+			hovered_tile = tile
 			tile.hovered = true
 		} else{
 			tile.hovered = false
 		}
 	}
 }
+

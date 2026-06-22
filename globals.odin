@@ -22,7 +22,10 @@ enemy_texture: rl.Texture2D
 hill_texture: rl.Texture2D
 
 tile_texture: rl.Texture2D
-tile_hovered_texture: rl.Texture2D
+button_texture: rl.Texture2D
 
 player: Entity
 
+HOVERED_COLOR := rl.Color{100, 255, 255, 100}
+
+DEFAULT_FONT := rl.GetFontDefault()

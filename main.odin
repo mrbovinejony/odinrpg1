@@ -7,6 +7,7 @@ import "core:math/linalg"
 import "core:log"
 import "core:encoding/json"
 import "core:os"
+import "core:strings"
 
 Direction :: enum {
 	Up,
@@ -27,7 +28,7 @@ wait_for_spacebar: bool
 main :: proc(){
 	context.logger = log.create_console_logger()
 
-	rl.InitWindow(1000, 1000, "rpg")
+	rl.InitWindow(1400, 1000, "rpg")
 
 	load_textures()
 	load_map()
@@ -37,7 +38,7 @@ main :: proc(){
 		zoom = f32(rl.GetScreenHeight()) / 200
 	}
 
-	reset_entity_array()
+	save_button = ui_make_button(button_texture, {200, 60}, "save", test_button_click)
 
 	turn = PLAYER_TURN
 
@@ -45,6 +46,9 @@ main :: proc(){
 		dt = rl.GetFrameTime()
 		if rl.IsKeyPressed(.SPACE){
 			wait_for_spacebar = false
+		}
+		if rl.IsKeyPressed(.F2){
+			editing_mode = !editing_mode
 		}
 
 		set_tile_hovered(&map_grid)
@@ -54,6 +58,9 @@ main :: proc(){
 		}
 
 		player = entities[0]
+
+		ui_update_button(&save_button)
+		ui_update_button(&load_button)
 		
 		rl.BeginDrawing()
 		rl.BeginMode2D(camera)
@@ -61,15 +68,11 @@ main :: proc(){
 		rl.ClearBackground(rl.BLUE)
 
 		hoveredstr : cstring
+
 		for tile in map_grid{
-			if tile.hovered{
-				hoveredstr = fmt.ctprintf("%v", tile.rect)
-				rl.DrawTextureRec(tile_hovered_texture, tile.rect, {tile.rect.x, tile.rect.y}, rl.WHITE)
-
-			}else{
-				rl.DrawTextureRec(tile_texture, tile.rect, {tile.rect.x, tile.rect.y}, rl.WHITE)
-			}
-
+			
+			rl.DrawTextureRec(tile_texture, tile.rect, {tile.rect.x, tile.rect.y}, rl.WHITE)
+			
 			top_left := rl.Vector2{
 					tile.rect.x, tile.rect.y
 				}
@@ -91,6 +94,7 @@ main :: proc(){
 			rl.DrawLineEx(top_right, bottom_right, 1, {0, 0, 50, 100})
 			rl.DrawLineEx(bottom_left, bottom_right, 1, {0, 0, 50, 100})
 		}
+			rl.DrawTextureRec(tile_texture, hovered_tile.rect, {hovered_tile.rect.x, hovered_tile.rect.y}, HOVERED_COLOR)
 
 		for entity in entities{
 			rl.DrawTextureV(entity.texture, entity.pos, {255, 255, 255, 100})
@@ -102,8 +106,19 @@ main :: proc(){
 
 		turn_str := fmt.ctprintf("%v", turn)
 		spbar_str := fmt.ctprintf("%v", wait_for_spacebar)
+		list_str := fmt.ctprintf("size: %v", len(entities))
+
+		in_editing_mode(hovered_tile)
+
 		rl.DrawText(turn_str, 20, 20, 2, rl.WHITE)
 		rl.DrawText(spbar_str, 20, 40, 2, rl.WHITE)
+		rl.DrawText(list_str, 20, 60, 2, rl.WHITE)
+
+		ui_draw_button(save_button)
+		ui_draw_button(load_button)
+
+		rl.DrawText(save_button.text, i32(save_button.text_start_pos.x), i32(save_button.text_start_pos.y), 1, rl.WHITE)
+
 		rl.EndMode2D()
 		rl.EndDrawing()
 	}
@@ -112,9 +127,48 @@ main :: proc(){
 	//save_and_export_json()
 }
 
+in_editing_mode :: proc(tile: Tile){
+	if editing_mode{
+		mp := rl.GetScreenToWorld2D(rl.GetMousePosition(), camera)
+		can_place := true
+
+		rl.DrawTextureV(hill_texture, mp, rl.WHITE)
+
+		if rl.IsMouseButtonPressed(.LEFT){
+			new_entity := Entity{
+				texture = hill_texture,
+				pos = { tile.rect.x, tile.rect.y},
+				entity_type = .Static,
+				current_tile = hovered_tile,
+				id = len(entities) + 1
+			}
+			for e in entities{
+				if e.pos.x == tile.rect.x && e.pos.y == tile.rect.y{
+					can_place = false
+				}
+			}
+			if can_place{
+				add_entity(new_entity)
+			}
+		}
+
+		if rl.IsMouseButtonPressed(.RIGHT){
+			for e, idx in entities{
+				e_rect := rl.Rectangle{
+					e.pos.x, e.pos.y, f32(e.texture.width), f32(e.texture.height)
+				}
+				if rl.CheckCollisionPointRec(mp, e_rect){
+					remove_entity(idx)
+					break
+				}
+			}
+		}
+	}
+}
+
 handle_player_input :: proc(e: ^Entity){
 	wait_for_spacebar = false
-	
+
 	if rl.IsKeyPressed(.LEFT) || rl.IsKeyPressed(.KP_4){
 		move_entity_to_tile(e, .Left,  e.speed)
 	}
@@ -147,7 +201,7 @@ load_textures :: proc(){
 	hill_texture = rl.LoadTexture("hill.png")
 	
 	tile_texture= rl.LoadTexture("tile.png")
-	tile_hovered_texture = rl.LoadTexture("tile_hovered.png")
+	button_texture = rl.LoadTexture("button.png")
 }
 
 load_json_file :: proc(){

@@ -81,9 +81,8 @@ handle_entity :: proc(e: ^Entity){
 		}
 	}
 
-	if e.health <= 0{
+	if e.health <= 0 && e.entity_type != .Static{
 		unordered_remove(&entities, e.id)
-		reset_entity_array()
 	}
 }
 
@@ -257,4 +256,12 @@ reset_entity_array :: proc(){
 	for i in 0..<len(entities){
 		entities[i].id = i
 	}
+}
+
+add_entity :: proc(e: Entity){
+	append(&entities, e)
+}
+
+remove_entity :: proc(index: int){
+	unordered_remove(&entities, index)
 }
