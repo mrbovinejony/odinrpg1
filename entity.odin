@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:math"
 import "core:math/linalg"
 import "core:log"
+import "core:time"
 
 Entity :: struct {
 	texture : rl.Texture2D,
@@ -18,11 +19,18 @@ Entity :: struct {
 	moves_left: f32,
 	health: f32,
 	damage: f32,
+	
+	//every entity will be melee
+	attack_type: Attack_Type,
+	attack_range_tiles: [8]rl.Vector2,
+	attack_target: ^Entity,
+
 }
 
 Entity_State :: enum {
 	Moving,
-	Stopped
+	Attacking,
+	Stopped,
 }
 
 Entity_Type :: enum {
@@ -30,6 +38,13 @@ Entity_Type :: enum {
 	Enemy,
 	Static,
 }
+
+Attack_Type :: enum{
+	Melee, 
+	Range,
+}
+
+surrounding_tiles: [8]rl.Vector2
 
 check_entity_in_direction :: proc(next_pos: rl.Vector2, e: ^Entity) -> (bool, ^Entity){
 	adjacent_entity : ^Entity
@@ -43,46 +58,94 @@ check_entity_in_direction :: proc(next_pos: rl.Vector2, e: ^Entity) -> (bool, ^E
 	return false, nil
 }
 
+check_melee_range :: proc(e: ^Entity){
+	//check 8 surrounding tiles, if type is player then switch to attack state
+	 attack_range_tiles := [8]rl.Vector2{
+		{e.pos.x - CELL_SIZE, e.pos.y}, //left
+		{e.pos.x + CELL_SIZE, e.pos.y}, //right
+		{e.pos.x, e.pos.y + CELL_SIZE}, //down
+		{e.pos.x, e.pos.y - CELL_SIZE}, //up
+		{e.pos.x - CELL_SIZE, e.pos.y - CELL_SIZE}, //ul
+		{e.pos.x - CELL_SIZE, e.pos.y + CELL_SIZE}, //dl
+		{e.pos.x + CELL_SIZE, e.pos.y - CELL_SIZE}, //ur
+		{e.pos.x + CELL_SIZE, e.pos.y + CELL_SIZE}, //dr
+	}
+	e.attack_range_tiles = attack_range_tiles
+}
+
+melee_attack :: proc(e: ^Entity){
+
+	stopwatch: time.Stopwatch
+	time.stopwatch_start(&stopwatch)
+	timer_duration := 1 * time.Second
+
+	for{
+		duration := time.stopwatch_duration(stopwatch)
+
+		if duration >= timer_duration{
+			do_damage(e, e.attack_target)
+			break
+		}
+	}
+	e.attack_range_tiles = 0
+	e.moves_left -= 1
+	e.entity_state = .Moving		
+}
+
 do_damage :: proc(attacking_e, damaged_e: ^Entity){
 	if damaged_e.entity_type != .Static{
-		switch attacking_e.entity_type{
-			case .Player:
-					damaged_e.health -= attacking_e.damage
-			case .Enemy:
-					damaged_e.health -= attacking_e.damage
-			case .Static:
-		}
+		damaged_e.health -= attacking_e.damage
+		log.info(damaged_e.health)
 	}
 }
 
 handle_entity :: proc(e: ^Entity){
 	if wait_for_spacebar == false{
-	#partial switch e.entity_type{
-
-		case .Player: 			
-			if turn == PLAYER_TURN{	
-				handle_player_input(e)
-
-				if e.moves_left <= 0{
-					turn = ENEMY_TURN
-					e.moves_left = e.max_moves
-				}
-			}
-
-		case .Enemy:
-			if turn == ENEMY_TURN{
-				move_to_entity_target(e, &entities[0])
-
-				if e.moves_left <= 0{
-					turn = PLAYER_TURN
-					e.moves_left = e.max_moves
-				}
-			}
+		switch e.entity_type{
+			case .Player:
+				check_melee_range(e)
+				handle_player(e)
+			case .Enemy:
+				check_melee_range(e)
+				handle_enemy(e)
+			case .Static:
 		}
 	}
-
 	if e.health <= 0 && e.entity_type != .Static{
 		unordered_remove(&entities, e.id)
+	}
+}
+
+
+handle_player :: proc(e: ^Entity){
+	if turn == PLAYER_TURN{	
+		handle_player_input(e)
+
+		if e.moves_left <= 0{
+			turn = ENEMY_TURN
+			e.moves_left = e.max_moves
+			e.entity_state = .Moving
+		}
+	}
+}
+
+handle_enemy :: proc(e: ^Entity){
+	if turn == ENEMY_TURN{
+		switch e.entity_state{
+			case .Moving:
+				move_to_entity_target(e, &entities[0])
+			case .Attacking:
+			//create array of attack ranges, then set 2 sec timer to draw on the tiles
+				melee_attack(e)
+			case .Stopped:
+
+		}	
+
+		if e.moves_left <= 0{
+			turn = PLAYER_TURN
+			e.moves_left = e.max_moves
+			e.entity_state = .Moving
+		}
 	}
 }
 
@@ -119,7 +182,7 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 	new_pos : rl.Vector2
 	new_tile : Tile
 
-
+	//if check tile in direction is true, check if entity is there
 	switch dir{
 		case .Up:
 			new_pos = {e.pos.x, e.pos.y - num_to_move * CELL_SIZE}
@@ -127,8 +190,10 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
+
 				}else{
 					e.pos = new_pos
 				}
@@ -142,8 +207,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -158,8 +224,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -173,8 +240,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 				if check_tile_in_direction(dir, prev_tile, new_tile) {
 					has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 					if has_entity{
-						do_damage(e, adjacent_entity)
+						e.attack_target = adjacent_entity
 						e.pos = prev_pos
+						e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -188,8 +256,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -203,8 +272,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -218,8 +288,9 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 			if check_tile_in_direction(dir, prev_tile, new_tile) {
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
 				if has_entity{
-					do_damage(e, adjacent_entity)
+					e.attack_target = adjacent_entity
 					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -233,10 +304,11 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 					if check_tile_in_direction(dir, prev_tile, new_tile) {
 
 				has_entity, adjacent_entity := check_entity_in_direction(new_pos, e)
-										log.info(has_entity)
+										
 				if has_entity{
-					do_damage(e, adjacent_entity)
-				e.pos = prev_pos
+					e.attack_target = adjacent_entity
+					e.pos = prev_pos
+					e.entity_state = .Attacking
 				}else{
 					e.pos = new_pos
 				}
@@ -245,11 +317,13 @@ move_entity_to_tile :: proc(e: ^Entity, dir: Direction, num_to_move: f32){
 				e.pos = prev_pos
 			}
 		}
+		e.moves_left -= 1
+		log.info(e.entity_type)
+	    log.info(e.pos)
 
 		if e.entity_type == .Enemy{
 			wait_for_spacebar = true
 		}
-		e.moves_left -= 1
 }
 
 reset_entity_array :: proc(){

@@ -24,6 +24,7 @@ UI_Button :: struct{
 
 save_button: UI_Button
 load_button: UI_Button
+reset_button: UI_Button
 
 ButtonClickProc :: proc()
 
@@ -64,7 +65,7 @@ ui_update_button :: proc(button: ^UI_Button){
 	if rl.CheckCollisionPointRec(mp, button.size_rect){
 		button.hovered = true
 		if rl.IsMouseButtonPressed(.LEFT){
-			test_button_click()
+			button.on_button_click()
 		}
 	}else{
 		button.hovered = false
@@ -125,7 +126,4 @@ ui_set_text_in_center :: proc(font: rl.Font, button: UI_Button ) -> rl.Vector2{
 	return start_pos
 }
 
-test_button_click :: proc(){
-	log.info("clicked")
-}
 

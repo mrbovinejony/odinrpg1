@@ -8,6 +8,7 @@ import "core:log"
 import "core:encoding/json"
 import "core:os"
 import "core:strings"
+import "core:time"
 
 Direction :: enum {
 	Up,
@@ -38,8 +39,9 @@ main :: proc(){
 		zoom = f32(rl.GetScreenHeight()) / 200
 	}
 
-	save_button = ui_make_button(button_texture, {200, 60}, "save", test_button_click)
-
+	save_button = ui_make_button(button_texture, {200, 60}, "save", save_and_export_json)
+	load_button = ui_make_button(button_texture, {200, 80}, "load", load_json_file)
+	reset_button = ui_make_button(button_texture, {200, 100}, "reset", reset_level)
 	turn = PLAYER_TURN
 
 	for !rl.WindowShouldClose(){
@@ -61,63 +63,45 @@ main :: proc(){
 
 		ui_update_button(&save_button)
 		ui_update_button(&load_button)
-		
+		ui_update_button(&reset_button)
+
 		rl.BeginDrawing()
 		rl.BeginMode2D(camera)
 
 		rl.ClearBackground(rl.BLUE)
 
-		hoveredstr : cstring
-
-		for tile in map_grid{
-			
-			rl.DrawTextureRec(tile_texture, tile.rect, {tile.rect.x, tile.rect.y}, rl.WHITE)
-			
-			top_left := rl.Vector2{
-					tile.rect.x, tile.rect.y
-				}
-
-			top_right := rl.Vector2{
-				tile.rect.x + tile.rect.width, tile.rect.y
-			}
-
-			bottom_left := rl.Vector2{
-				tile.rect.x, tile.rect.y + tile.rect.height
-			}
-
-			bottom_right := rl.Vector2{
-				tile.rect.x + tile.rect.width, tile.rect.y + tile.rect.height
-			}
-
-			rl.DrawLineEx(top_left, top_right, 1, {255, 255, 150, 100})
-			rl.DrawLineEx(top_left, bottom_left, 1, {255, 255, 150, 100})
-			rl.DrawLineEx(top_right, bottom_right, 1, {0, 0, 50, 100})
-			rl.DrawLineEx(bottom_left, bottom_right, 1, {0, 0, 50, 100})
-		}
-			rl.DrawTextureRec(tile_texture, hovered_tile.rect, {hovered_tile.rect.x, hovered_tile.rect.y}, HOVERED_COLOR)
+		draw_grid()
 
 		for entity in entities{
 			rl.DrawTextureV(entity.texture, entity.pos, {255, 255, 255, 100})
-			health_str := fmt.ctprintf("%v", entity.id)
-			moves_left_str := fmt.ctprintf("%v", entity.moves_left)
-			rl.DrawText(health_str, i32(entity.pos.x), i32(entity.pos.y), 2, rl.RED)
-			rl.DrawText(moves_left_str, i32(entity.pos.x), i32(entity.pos.y + 10), 2, rl.GREEN)
+			moves_left_str := fmt.ctprintf("%v", entity.entity_state)
+			rl.DrawText(moves_left_str, i32(entity.pos.x), i32(entity.pos.y - 10), 2, rl.GREEN)
+
+			if entity.entity_state == .Attacking{
+
+				for pos in entity.attack_range_tiles{
+					rl.DrawTextureV(tile_texture, pos, {100, 100, 255, 100})
+				}
+			}
 		}
 
 		turn_str := fmt.ctprintf("%v", turn)
 		spbar_str := fmt.ctprintf("%v", wait_for_spacebar)
 		list_str := fmt.ctprintf("size: %v", len(entities))
 
+		hoveredstr := fmt.ctprintf("%v", hovered_tile)
+		enemyposstr := fmt.ctprintf("%v", entities[1].pos)
 		in_editing_mode(hovered_tile)
 
 		rl.DrawText(turn_str, 20, 20, 2, rl.WHITE)
 		rl.DrawText(spbar_str, 20, 40, 2, rl.WHITE)
-		rl.DrawText(list_str, 20, 60, 2, rl.WHITE)
+
+		rl.DrawText(enemyposstr, 20, 10, 1, rl.WHITE)
+
 
 		ui_draw_button(save_button)
 		ui_draw_button(load_button)
-
-		rl.DrawText(save_button.text, i32(save_button.text_start_pos.x), i32(save_button.text_start_pos.y), 1, rl.WHITE)
+		ui_draw_button(reset_button)
 
 		rl.EndMode2D()
 		rl.EndDrawing()
@@ -126,6 +110,8 @@ main :: proc(){
 	rl.CloseWindow()
 	//save_and_export_json()
 }
+
+
 
 in_editing_mode :: proc(tile: Tile){
 	if editing_mode{
@@ -193,6 +179,40 @@ handle_player_input :: proc(e: ^Entity){
 	if rl.IsKeyPressed(.KP_3){
 		move_entity_to_tile(e, .DownRight, e.speed)
 	}
+
+	if rl.IsKeyPressed(.ENTER){
+		e.moves_left -= 1
+	}
+}
+
+draw_grid :: proc(){
+	for tile in map_grid{
+		
+		rl.DrawTextureRec(tile_texture, tile.rect, {tile.rect.x, tile.rect.y}, rl.WHITE)
+		
+		top_left := rl.Vector2{
+				tile.rect.x, tile.rect.y
+			}
+
+		top_right := rl.Vector2{
+			tile.rect.x + tile.rect.width, tile.rect.y
+		}
+
+		bottom_left := rl.Vector2{
+			tile.rect.x, tile.rect.y + tile.rect.height
+		}
+
+		bottom_right := rl.Vector2{
+			tile.rect.x + tile.rect.width, tile.rect.y + tile.rect.height
+		}
+
+		rl.DrawLineEx(top_left, top_right, 1, {255, 255, 150, 100})
+		rl.DrawLineEx(top_left, bottom_left, 1, {255, 255, 150, 100})
+		rl.DrawLineEx(top_right, bottom_right, 1, {0, 0, 50, 100})
+		rl.DrawLineEx(bottom_left, bottom_right, 1, {0, 0, 50, 100})
+	}
+		rl.DrawTextureRec(tile_texture, hovered_tile.rect, {hovered_tile.rect.x, hovered_tile.rect.y}, HOVERED_COLOR)
+
 }
 
 load_textures :: proc(){
@@ -220,5 +240,11 @@ save_and_export_json :: proc(){
 	if level_data, err := json.marshal(entities,options, allocator = context.temp_allocator); err == nil{
 		_ = os.write_entire_file("level.json", level_data)
 	}
+}
+
+reset_level :: proc(){
+	load_json_file()
+	turn = PLAYER_TURN
+	wait_for_spacebar = false
 }
 
