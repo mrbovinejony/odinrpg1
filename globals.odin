@@ -4,7 +4,11 @@ import rl "vendor:raylib"
 
 camera: rl.Camera2D
 entities: [dynamic]Entity
-turn: int
+
+active_entities: [dynamic]^Entity
+//turn: int
+turn: ^Entity
+turn_index := 0
 dt: f32
 
 PLAYER_TURN :: 0
@@ -27,5 +31,6 @@ button_texture: rl.Texture2D
 player: Entity
 
 HOVERED_COLOR := rl.Color{100, 255, 255, 100}
-
+ATTACK_RANGE_COLOR := rl.Color{100, 100, 255, 50}
+SELECTED_ENTITY_COLOR := rl.Color{100, 100, 100, 50}
 DEFAULT_FONT := rl.GetFontDefault()

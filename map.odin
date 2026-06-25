@@ -24,6 +24,13 @@ calc_tile_rect :: proc(x, y: int) -> rl.Rectangle{
 	}
 }
 
+get_tile_pos :: proc(t: Tile) -> rl.Vector2{
+	x := f32(t.rect.x)
+	y := f32(t.rect.y)
+
+	return {x, y}
+}
+
 get_tile_from_array :: proc(vec2: rl.Vector2) -> Tile{
 	for tile in map_grid{
 		if vec2 == {tile.rect.x, tile.rect.y}{
