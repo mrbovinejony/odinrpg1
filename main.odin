@@ -37,6 +37,7 @@ main :: proc(){
 	load_textures()
 	load_map()
 	//load_json_file()
+	load_all_skills()
 
 	camera = {
 		zoom = f32(rl.GetScreenHeight()) / 200
@@ -113,9 +114,13 @@ main :: proc(){
 			append(&active_entities, &e)
 		}
 	}
-	turn = active_entities[0]
 
-	log.info(len(active_entities))
+	for &e in active_entities{
+		set_entity_skill(e, "melee")
+		set_entity_skill(e, "range")
+	}
+
+	turn = active_entities[0]
 
 	for !rl.WindowShouldClose(){
 		dt = rl.GetFrameTime()
@@ -138,10 +143,14 @@ main :: proc(){
 		ui_update_button(&load_button)
 		ui_update_button(&reset_button)
 
+		for &skill in turn.skill_list{
+			ui_update_button(&skill.button)
+		}
+
 		rl.BeginDrawing()
 		rl.BeginMode2D(camera)
 
-		rl.ClearBackground(rl.BLUE)
+		rl.ClearBackground(rl.GRAY)
 
 		draw_grid()
 
@@ -155,6 +164,11 @@ main :: proc(){
 					rl.DrawTextureV(tile_texture, pos, HOVERED_COLOR)
 				}
 			}
+		}
+
+		for skill in turn.skill_list{
+			ui_draw_button(skill.button)
+			log.info(skill.button.pos)
 		}
 
 		in_editing_mode(hovered_tile)		
@@ -185,26 +199,25 @@ draw_selected_entity_information :: proc(e: ^Entity){
 
 	rl.DrawTextureV(tile_texture, e.pos, SELECTED_ENTITY_COLOR)
 
-	rl.DrawTextEx(DEFAULT_FONT, moves_str, {200, 90}, 5, 1, rl.RED)
-	rl.DrawTextEx(DEFAULT_FONT, turn_str, {200, 110}, 5, 1, rl.RED)
-	rl.DrawTextEx(DEFAULT_FONT, state_str, {200, 130}, 5, 1, rl.RED)
-	rl.DrawTextEx(DEFAULT_FONT, health_str, {200, 150}, 5, 1, rl.RED)
-	rl.DrawTextEx(DEFAULT_FONT, spcbar_str, {200, 170}, 5, 1, rl.RED)
+	rl.DrawTextEx(DEFAULT_FONT, moves_str, {200, 90}, 3, 1, rl.BLACK)
+	rl.DrawTextEx(DEFAULT_FONT, turn_str, {200, 95}, 3, 1, rl.BLACK)
+	rl.DrawTextEx(DEFAULT_FONT, state_str, {200, 100}, 3, 1, rl.BLACK)
+	rl.DrawTextEx(DEFAULT_FONT, health_str, {200, 105}, 3, 1, rl.BLACK)
+	rl.DrawTextEx(DEFAULT_FONT, spcbar_str, {200, 110}, 3, 1, rl.BLACK)
 
 	if e.attack_target != nil{
 		target_str := fmt.ctprintf("Target: %v", e.attack_target.entity_type)
 
-		rl.DrawTextEx(DEFAULT_FONT, target_str, {200, 70}, 5, 1, rl.RED)
+		rl.DrawTextEx(DEFAULT_FONT, target_str, {200, 70}, 5, 1, rl.BLACK)
 
 	}
 
 	if e.aggro_target != nil{
 		aggro_str := fmt.ctprintf("Aggro target: %v", e.aggro_target.entity_type)
-		rl.DrawTextEx(DEFAULT_FONT, aggro_str, {200, 50}, 5, 1, rl.RED)
+		rl.DrawTextEx(DEFAULT_FONT, aggro_str, {200, 50}, 5, 1, rl.BLACK)
 	}
 
-
-}
+	}
 }
 
 select_entity :: proc(){
@@ -329,6 +342,11 @@ load_textures :: proc(){
 	button_texture = rl.LoadTexture("button.png")
 }
 
+load_all_skills :: proc(){
+	create_skill("melee", .Melee, 3, {200, 130}, use_skill)
+	create_skill("range", .Range, 3, {200, 150}, use_skill)
+}
+
 load_json_file :: proc(){
 	if level_data, ok := os.read_entire_file("level.json", context.temp_allocator); ok == nil{
 		if json.unmarshal(level_data, &entities) != nil {
@@ -358,4 +376,6 @@ reset_level :: proc(){
 	turn = active_entities[0]
 	wait_for_spacebar = false
 }
+
+
 

@@ -24,6 +24,57 @@ calc_tile_rect :: proc(x, y: int) -> rl.Rectangle{
 	}
 }
 
+get_attack_range_tiles :: proc(start_pos: rl.Vector2, dir: Direction, tiles_from_start: int) -> rl.Vector2{
+	tile: rl.Vector2
+	offset := f32(CELL_SIZE * tiles_from_start)
+
+	switch dir{
+		case .Up:
+			tile ={start_pos.x, start_pos.y - offset} //up
+		case .Down:
+			tile = {start_pos.x, start_pos.y + offset} //down
+		case .Left:
+			tile = {start_pos.x - offset, start_pos.y} //left
+		case .Right:
+			tile = {start_pos.x + offset, start_pos.y}
+		case .UpLeft:
+			tile = {start_pos.x - offset, start_pos.y - offset} //ul
+
+		case .UpRight:
+			tile = {start_pos.x + offset, start_pos.y - offset} //ur
+
+		case .DownLeft:
+			tile = {start_pos.x - offset, start_pos.y + offset} //dl
+
+		case .DownRight:
+			tile = {start_pos.x + offset, start_pos.y + offset} //dr
+	}
+	return tile
+
+	/*switch dir{
+		case .Up:
+			tile ={e.pos.x, e.pos.y - offset} //up
+		case .Down:
+			tile = {e.pos.x, e.pos.y + offset} //down
+		case .Left:
+			tile = {e.pos.x - offset, e.pos.y} //left
+		case .Right:
+			tile = {e.pos.x + offset, e.pos.y}
+		case .UpLeft:
+			tile = {e.pos.x - offset, e.pos.y - offset} //ul
+
+		case .UpRight:
+			tile = {e.pos.x + offset, e.pos.y - offset} //ur
+
+		case .DownLeft:
+			tile = {e.pos.x - offset, e.pos.y + offset} //dl
+
+		case .DownRight:
+			tile = {e.pos.x + offset, e.pos.y + offset} //dr
+	}
+	return tile*/
+}
+
 get_tile_pos :: proc(t: Tile) -> rl.Vector2{
 	x := f32(t.rect.x)
 	y := f32(t.rect.y)

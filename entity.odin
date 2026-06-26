@@ -22,6 +22,7 @@ Entity :: struct {
 	damage: f32,
 	
 	//every entity will be melee
+	skill_list: [dynamic]Skill,
 	attack_type: Attack_Type `json:"-"`,
 	attack_range_tiles: [8]rl.Vector2 `json:"-"`, 
 	attack_target: ^Entity `json:"-"`, 
@@ -41,10 +42,6 @@ Entity_Type :: enum {
 	Static,
 }
 
-Attack_Type :: enum{
-	Melee, 
-	Range,
-}
 
 surrounding_tiles: [8]rl.Vector2
 
